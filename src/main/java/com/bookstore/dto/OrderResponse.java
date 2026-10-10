@@ -1,6 +1,7 @@
 package com.bookstore.dto;
 
 import com.bookstore.model.OrderStatus;
+import com.bookstore.model.PaymentMethod;
 import com.bookstore.model.PaymentStatus;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -22,6 +23,9 @@ public class OrderResponse {
     private OrderStatus status;
     private BigDecimal totalAmount;
     private PaymentStatus paymentStatus;
+    private PaymentMethod paymentMethod;
+    private AddressResponse shippingAddress;
+    private AddressResponse billingAddress;
     private List<OrderItemResponse> items;
     private LocalDateTime createdAt;
 }

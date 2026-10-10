@@ -33,6 +33,10 @@ public class Payment {
     @Column(nullable = false)
     private PaymentStatus status;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", nullable = false)
+    private PaymentMethod paymentMethod;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

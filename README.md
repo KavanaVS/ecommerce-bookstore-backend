@@ -115,6 +115,18 @@ All responses use the envelope `{ success, data, error }`. Endpoints marked **Ad
 |---|---|---|
 | POST | `/api/checkout` | Auth |
 
+`POST /api/checkout` requires a JSON body with `shippingAddress`, `billingAddress` (each: `line1`, `line2` optional, `city`, `state`, `postalCode`, `country`), and `paymentMethod` (`CARD`, `UPI`, or `COD`):
+
+```json
+{
+  "shippingAddress": { "line1": "221B Baker Street", "city": "London", "state": "Greater London", "postalCode": "NW1 6XE", "country": "UK" },
+  "billingAddress": { "line1": "221B Baker Street", "city": "London", "state": "Greater London", "postalCode": "NW1 6XE", "country": "UK" },
+  "paymentMethod": "CARD"
+}
+```
+
+Payment processing is mocked: `CARD`/`UPI` are marked `PAID` immediately, `COD` is marked `PENDING` (collected on delivery).
+
 ### Orders
 | Method | Path | Access |
 |---|---|---|

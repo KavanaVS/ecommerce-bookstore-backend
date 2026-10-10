@@ -1,5 +1,8 @@
 package com.bookstore.service;
 
+import com.bookstore.dto.AddressRequest;
+import com.bookstore.dto.AddressResponse;
+import com.bookstore.dto.CheckoutRequest;
 import com.bookstore.dto.OrderItemResponse;
 import com.bookstore.dto.OrderResponse;
 import com.bookstore.dto.OrderStatusUpdateRequest;
@@ -8,6 +11,7 @@ import com.bookstore.exception.EmptyCartException;
 import com.bookstore.exception.InsufficientStockException;
 import com.bookstore.exception.InvalidCredentialsException;
 import com.bookstore.exception.OrderNotFoundException;
+import com.bookstore.model.Address;
 import com.bookstore.model.Book;
 import com.bookstore.model.Cart;
 import com.bookstore.model.CartItem;
@@ -15,6 +19,7 @@ import com.bookstore.model.Order;
 import com.bookstore.model.OrderItem;
 import com.bookstore.model.OrderStatus;
 import com.bookstore.model.Payment;
+import com.bookstore.model.PaymentMethod;
 import com.bookstore.model.PaymentStatus;
 import com.bookstore.model.User;
 import com.bookstore.repository.BookRepository;
@@ -56,7 +61,7 @@ public class OrderService {
     }
 
     @Transactional
-    public OrderResponse checkout() {
+    public OrderResponse checkout(CheckoutRequest request) {
         User user = getCurrentUser();
         Cart cart = cartRepository.findByUserId(user.getId())
                 .orElseThrow(() -> new EmptyCartException("Cart is empty"));
@@ -89,6 +94,8 @@ public class OrderService {
                 .userId(user.getId())
                 .status(OrderStatus.PLACED)
                 .totalAmount(total)
+                .shippingAddress(toAddress(request.getShippingAddress()))
+                .billingAddress(toAddress(request.getBillingAddress()))
                 .build();
         order = orderRepository.save(order);
 
@@ -108,10 +115,14 @@ public class OrderService {
             bookRepository.save(book);
         }
 
+        PaymentMethod paymentMethod = request.getPaymentMethod();
+        PaymentStatus paymentStatus = paymentMethod == PaymentMethod.COD ? PaymentStatus.PENDING : PaymentStatus.PAID;
+
         Payment payment = Payment.builder()
                 .orderId(order.getId())
                 .amount(total)
-                .status(PaymentStatus.PAID)
+                .status(paymentStatus)
+                .paymentMethod(paymentMethod)
                 .build();
         paymentRepository.save(payment);
 
@@ -173,17 +184,43 @@ public class OrderService {
                 .map(this::toOrderItemResponse)
                 .toList();
 
-        PaymentStatus paymentStatus = paymentRepository.findByOrderId(order.getId())
-                .map(Payment::getStatus)
-                .orElse(null);
+        Payment payment = paymentRepository.findByOrderId(order.getId()).orElse(null);
 
         return OrderResponse.builder()
                 .id(order.getId())
                 .status(order.getStatus())
                 .totalAmount(order.getTotalAmount())
-                .paymentStatus(paymentStatus)
+                .paymentStatus(payment == null ? null : payment.getStatus())
+                .paymentMethod(payment == null ? null : payment.getPaymentMethod())
+                .shippingAddress(toAddressResponse(order.getShippingAddress()))
+                .billingAddress(toAddressResponse(order.getBillingAddress()))
                 .items(itemResponses)
                 .createdAt(order.getCreatedAt())
+                .build();
+    }
+
+    private Address toAddress(AddressRequest request) {
+        return Address.builder()
+                .line1(request.getLine1())
+                .line2(request.getLine2())
+                .city(request.getCity())
+                .state(request.getState())
+                .postalCode(request.getPostalCode())
+                .country(request.getCountry())
+                .build();
+    }
+
+    private AddressResponse toAddressResponse(Address address) {
+        if (address == null) {
+            return null;
+        }
+        return AddressResponse.builder()
+                .line1(address.getLine1())
+                .line2(address.getLine2())
+                .city(address.getCity())
+                .state(address.getState())
+                .postalCode(address.getPostalCode())
+                .country(address.getCountry())
                 .build();
     }
 

@@ -15,6 +15,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -50,6 +51,22 @@ class CategoryServiceTest {
                 .name("Fiction")
                 .description("Fictional works")
                 .build();
+    }
+
+    @Test
+    void list_returnsAllCategoriesMapped() {
+        when(categoryRepository.findAll()).thenReturn(List.of(category));
+
+        CategoryResponse expectedResponse = CategoryResponse.builder()
+                .id(1L)
+                .name("Fiction")
+                .description("Fictional works")
+                .build();
+        when(categoryMapper.toCategoryResponse(category)).thenReturn(expectedResponse);
+
+        List<CategoryResponse> result = categoryService.list();
+
+        assertThat(result).containsExactly(expectedResponse);
     }
 
     @Test
@@ -93,6 +110,22 @@ class CategoryServiceTest {
     }
 
     @Test
+    void getById_whenFound_returnsCategoryResponse() {
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+
+        CategoryResponse expectedResponse = CategoryResponse.builder()
+                .id(1L)
+                .name("Fiction")
+                .description("Fictional works")
+                .build();
+        when(categoryMapper.toCategoryResponse(category)).thenReturn(expectedResponse);
+
+        CategoryResponse result = categoryService.getById(1L);
+
+        assertThat(result).isEqualTo(expectedResponse);
+    }
+
+    @Test
     void update_whenNewNameAlreadyUsedByAnotherCategory_throwsDuplicateCategoryNameException() {
         CategoryRequest renameRequest = new CategoryRequest();
         renameRequest.setName("Non-Fiction");
@@ -108,6 +141,30 @@ class CategoryServiceTest {
     }
 
     @Test
+    void update_whenSuccessful_updatesCategoryAndReturnsResponse() {
+        CategoryRequest updateRequest = new CategoryRequest();
+        updateRequest.setName("Fiction");
+        updateRequest.setDescription("Updated description");
+
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+        when(categoryRepository.save(category)).thenReturn(category);
+
+        CategoryResponse expectedResponse = CategoryResponse.builder()
+                .id(1L)
+                .name("Fiction")
+                .description("Updated description")
+                .build();
+        when(categoryMapper.toCategoryResponse(category)).thenReturn(expectedResponse);
+
+        CategoryResponse result = categoryService.update(1L, updateRequest);
+
+        assertThat(result).isEqualTo(expectedResponse);
+        verify(categoryMapper).updateCategoryFromRequest(updateRequest, category);
+        verify(categoryRepository, never()).existsByName(any());
+        verify(categoryRepository).save(category);
+    }
+
+    @Test
     void delete_whenMissing_throwsCategoryNotFoundException() {
         when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -115,5 +172,14 @@ class CategoryServiceTest {
                 .isInstanceOf(CategoryNotFoundException.class);
 
         verify(categoryRepository, never()).delete(any(Category.class));
+    }
+
+    @Test
+    void delete_whenFound_deletesCategory() {
+        when(categoryRepository.findById(1L)).thenReturn(Optional.of(category));
+
+        categoryService.delete(1L);
+
+        verify(categoryRepository).delete(category);
     }
 }

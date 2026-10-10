@@ -119,11 +119,128 @@ class BookServiceTest {
     }
 
     @Test
+    void create_whenIsbnIsNew_savesBookAndReturnsResponse() {
+        when(bookRepository.existsByIsbn(bookRequest.getIsbn())).thenReturn(false);
+        when(bookMapper.toBook(bookRequest)).thenReturn(book);
+        when(bookRepository.save(book)).thenReturn(book);
+
+        BookResponse expectedResponse = BookResponse.builder()
+                .id(1L)
+                .title("Clean Code")
+                .author("Robert C. Martin")
+                .isbn("978-0132350884")
+                .price(new BigDecimal("39.99"))
+                .stockQuantity(10)
+                .categoryId(1L)
+                .build();
+        when(bookMapper.toBookResponse(book)).thenReturn(expectedResponse);
+
+        BookResponse result = bookService.create(bookRequest);
+
+        assertThat(result).isEqualTo(expectedResponse);
+
+        ArgumentCaptor<Book> bookCaptor = ArgumentCaptor.forClass(Book.class);
+        verify(bookRepository).save(bookCaptor.capture());
+        assertThat(bookCaptor.getValue()).isEqualTo(book);
+    }
+
+    @Test
     void getById_whenMissing_throwsBookNotFoundException() {
         when(bookRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> bookService.getById(99L))
                 .isInstanceOf(BookNotFoundException.class);
+    }
+
+    @Test
+    void getById_whenFound_returnsBookResponse() {
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+
+        BookResponse expectedResponse = BookResponse.builder()
+                .id(1L)
+                .title("Clean Code")
+                .author("Robert C. Martin")
+                .isbn("978-0132350884")
+                .price(new BigDecimal("39.99"))
+                .stockQuantity(10)
+                .categoryId(1L)
+                .build();
+        when(bookMapper.toBookResponse(book)).thenReturn(expectedResponse);
+
+        BookResponse result = bookService.getById(1L);
+
+        assertThat(result).isEqualTo(expectedResponse);
+    }
+
+    @Test
+    void update_whenSuccessful_updatesBookAndReturnsResponse() {
+        BookRequest updateRequest = new BookRequest();
+        updateRequest.setTitle("Clean Code (2nd Edition)");
+        updateRequest.setAuthor("Robert C. Martin");
+        updateRequest.setIsbn("978-0132350884");
+        updateRequest.setPrice(new BigDecimal("44.99"));
+        updateRequest.setStockQuantity(8);
+        updateRequest.setCategoryId(1L);
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.save(book)).thenReturn(book);
+
+        BookResponse expectedResponse = BookResponse.builder()
+                .id(1L)
+                .title("Clean Code (2nd Edition)")
+                .author("Robert C. Martin")
+                .isbn("978-0132350884")
+                .price(new BigDecimal("44.99"))
+                .stockQuantity(8)
+                .categoryId(1L)
+                .build();
+        when(bookMapper.toBookResponse(book)).thenReturn(expectedResponse);
+
+        BookResponse result = bookService.update(1L, updateRequest);
+
+        assertThat(result).isEqualTo(expectedResponse);
+        verify(bookMapper).updateBookFromRequest(updateRequest, book);
+        verify(bookRepository, never()).existsByIsbn(any());
+        verify(bookRepository).save(book);
+    }
+
+    @Test
+    void update_whenIsbnChangedAndAlreadyExists_throwsDuplicateIsbnException() {
+        BookRequest updateRequest = new BookRequest();
+        updateRequest.setTitle("Clean Code");
+        updateRequest.setAuthor("Robert C. Martin");
+        updateRequest.setIsbn("978-0000000000");
+        updateRequest.setPrice(new BigDecimal("39.99"));
+        updateRequest.setStockQuantity(10);
+        updateRequest.setCategoryId(1L);
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.existsByIsbn("978-0000000000")).thenReturn(true);
+
+        assertThatThrownBy(() -> bookService.update(1L, updateRequest))
+                .isInstanceOf(DuplicateIsbnException.class);
+
+        verify(bookRepository, never()).save(any());
+    }
+
+    @Test
+    void update_whenIsbnUnchanged_skipsDuplicateCheck() {
+        BookRequest updateRequest = new BookRequest();
+        updateRequest.setTitle("Clean Code");
+        updateRequest.setAuthor("Robert C. Martin");
+        updateRequest.setIsbn(book.getIsbn());
+        updateRequest.setPrice(new BigDecimal("39.99"));
+        updateRequest.setStockQuantity(10);
+        updateRequest.setCategoryId(1L);
+
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+        when(bookRepository.save(book)).thenReturn(book);
+        when(bookMapper.toBookResponse(book)).thenReturn(BookResponse.builder().id(1L).build());
+
+        bookService.update(1L, updateRequest);
+
+        verify(bookRepository, never()).existsByIsbn(any());
+        verify(bookRepository).save(book);
     }
 
     @Test
@@ -134,5 +251,14 @@ class BookServiceTest {
                 .isInstanceOf(BookNotFoundException.class);
 
         verify(bookRepository, never()).delete(any(Book.class));
+    }
+
+    @Test
+    void delete_whenFound_deletesBook() {
+        when(bookRepository.findById(1L)).thenReturn(Optional.of(book));
+
+        bookService.delete(1L);
+
+        verify(bookRepository).delete(book);
     }
 }
