@@ -1,0 +1,28 @@
+spring:
+  application:
+    name: ecommerce-bookstore-backend
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:bookstore}
+    username: ${DB_USERNAME:bookstore_user}
+    password: ${DB_PASSWORD:bookstore_pass}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    show-sql: false
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: ${SERVER_PORT:8080}
+
+app:
+  jwt:
+    # Fixed/static secret for now; refresh-token issuance/rotation not implemented yet.
+    secret: ${JWT_SECRET:dev-fixed-secret-key-change-me-0123456789abcdef}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
